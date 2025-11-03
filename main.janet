@@ -186,11 +186,11 @@
 
       (def box (get boxes i))
       (def x (convert-coord (get box :x) min-x max-x 0 num-cols))
-      (def y (convert-coord (get box :y) min-y max-y 0 num-rows))
+      (def y (- num-rows (convert-coord (get box :y) min-y max-y 0 num-rows)))
       (def w (+ (reduce max 0 (map length lines)) 2))
       (def h (+ (length lines) 2))
-      (render-box grid num-rows num-cols x y w h)
       (render-text grid num-rows num-cols (+ x 1) (+ y 1) lines)
+      (render-box grid num-rows num-cols x y w h)
     )
   )
 
