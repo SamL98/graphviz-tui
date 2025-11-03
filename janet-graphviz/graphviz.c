@@ -22,13 +22,12 @@ static Janet layout(int32_t argc, Janet *argv) {
         g_nodes[i] = agnode(g, (char *)janet_unwrap_string(id), 1);
 
         Janet a = janet_table_get(node, janet_ckeywordv("attrs"));
-        JanetArray *attrs = janet_getarray(&a, 0);
+        JanetTable *attrs = janet_gettable(&a, 0);
 
         for (size_t j = 0; j < attrs->count; ++j) {
-            JanetTable *attr = janet_gettable(attrs->data, j);
-            Janet key = janet_table_get(attr, janet_ckeywordv("key"));
-            Janet val = janet_table_get(attr, janet_ckeywordv("val"));
-            agset(&g_nodes[i], (char *)janet_unwrap_string(key), (char *)janet_unwrap_string(val));
+            char *key = (char *)janet_unwrap_string(attrs->data[j].key);
+            char *val = (char *)janet_unwrap_string(attrs->data[j].value);
+            agset(&g_nodes[i], key, val);
         }
     }
 
@@ -39,13 +38,12 @@ static Janet layout(int32_t argc, Janet *argv) {
         g_edges[i] = agedge(g, g_nodes[janet_getsize(&u, 0)], g_nodes[janet_getsize(&v, 0)], 0, 1);
 
         Janet a = janet_table_get(edge, janet_ckeywordv("attrs"));
-        JanetArray *attrs = janet_getarray(&a, 0);
+        JanetTable *attrs = janet_gettable(&a, 0);
 
         for (size_t j = 0; j < attrs->count; ++j) {
-            JanetTable *attr = janet_gettable(attrs->data, j);
-            Janet key = janet_table_get(attr, janet_ckeywordv("key"));
-            Janet val = janet_table_get(attr, janet_ckeywordv("val"));
-            agset(&g_edges[i], (char *)janet_unwrap_string(key), (char *)janet_unwrap_string(val));
+            char *key = (char *)janet_unwrap_string(attrs->data[j].key);
+            char *val = (char *)janet_unwrap_string(attrs->data[j].value);
+            agset(&g_edges[i], key, val);
         }
     }
 
@@ -62,10 +60,10 @@ static Janet layout(int32_t argc, Janet *argv) {
         double h = ND_height(n);
 
         JanetTable *node = janet_table(4);
-        janet_table_put(node, janet_cstringv("x"), janet_wrap_number(x));
-        janet_table_put(node, janet_cstringv("y"), janet_wrap_number(y));
-        janet_table_put(node, janet_cstringv("w"), janet_wrap_number(w));
-        janet_table_put(node, janet_cstringv("h"), janet_wrap_number(h));
+        janet_table_put(node, janet_ckeywordv("x"), janet_wrap_number(x));
+        janet_table_put(node, janet_ckeywordv("y"), janet_wrap_number(y));
+        janet_table_put(node, janet_ckeywordv("w"), janet_wrap_number(w));
+        janet_table_put(node, janet_ckeywordv("h"), janet_wrap_number(h));
 
         janet_array_push(out_nodes, janet_wrap_table(node));
     }
@@ -88,8 +86,8 @@ static Janet layout(int32_t argc, Janet *argv) {
                     pointf p = b->list[j];
 
                     JanetTable *pt = janet_table(4);
-                    janet_table_put(pt, janet_cstringv("x"), janet_wrap_number(p.x));
-                    janet_table_put(pt, janet_cstringv("y"), janet_wrap_number(p.y));
+                    janet_table_put(pt, janet_ckeywordv("x"), janet_wrap_number(p.x));
+                    janet_table_put(pt, janet_ckeywordv("y"), janet_wrap_number(p.y));
 
                     janet_array_push(curve, janet_wrap_table(pt));
                 }
@@ -102,8 +100,8 @@ static Janet layout(int32_t argc, Janet *argv) {
     }
 
     JanetTable *result = janet_table(4);
-    janet_table_put(result, janet_cstringv("nodes"), janet_wrap_array(out_nodes));
-    janet_table_put(result, janet_cstringv("edges"), janet_wrap_array(out_edges));
+    janet_table_put(result, janet_ckeywordv("nodes"), janet_wrap_array(out_nodes));
+    janet_table_put(result, janet_ckeywordv("edges"), janet_wrap_array(out_edges));
 
     gvFreeLayout(gvc, g);
     agclose(g);

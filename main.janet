@@ -4,7 +4,7 @@
   (string/trim s "\""))
 
 (defn make-attr [key val]
-  @{:key (trim key) :val (trim val)})
+  @{(trim key) (trim val)})
 
 (defn make-node [id attrs]
   @{:t "node" :id (trim id) :attrs attrs})
@@ -42,6 +42,15 @@
 (defn parse-dot [src]
   (peg/match dot-grammar src))
 
+(defn convert-attrs [as]
+  (def attrs @{})
+
+  (loop [a :in as]
+    (loop [[k v] :in (pairs a)]
+      (put attrs k v)))
+
+  attrs)
+
 (defn make-graph [dot]
   (def id2idx @{})
   (def nodes @[])
@@ -51,8 +60,11 @@
     (if (= (get n :t) "node")
       (do
         (def idx (length id2idx))
-        (put id2idx (get n :id) idx)
-        (array/push nodes n))))
+        (def id (get n :id))
+        (put id2idx id idx)
+
+        (def attrs (convert-attrs (get n :attrs)))
+        (array/push nodes @{:id id :attrs attrs}))))
 
   (loop [n :in dot]
     (if (= (get n :t) "edge")
@@ -77,9 +89,78 @@
         (def dst (get n :dst))
         (def u (get id2idx src))
         (def v (get id2idx dst))
-        (array/push edges @{:u u :v v :attrs (get n :attrs)}))))
+        (def attrs (convert-attrs (get n :attrs)))
+        (array/push edges @{:u u :v v :attrs attrs}))))
 
   @{:nodes nodes :edges edges})
+
+(defn convert-coord [p orig-min orig-max new-min new-max]
+  (def orig-size (- orig-max orig-min))
+  (def new-size (- new-max new-min))
+  (math/floor (+ (* (/ (- p orig-min) orig-size) new-size) new-min)))
+
+(defn display [g layout]
+  (def [stdout-r stdout-w] (os/pipe))
+
+  (os/execute ["tput" "lines"] :p {:out stdout-w})
+  (def num-rows (scan-number (string/trim (:read stdout-r 5) "\n")))
+
+  (os/execute ["tput" "cols"] :p {:out stdout-w})
+  (def num-cols (scan-number (string/trim (:read stdout-r 5) "\n")))
+
+  (def grid (array))
+
+  (loop [y :range [0 num-rows]]
+    (do
+      (def row (array))
+      (loop [x :range [0 num-cols]]
+        (array/push row ""))
+      (array/push grid row)))
+
+  (def nodes (get g :nodes))
+  (def edges (get g :edges))
+
+  (def boxes (get layout :nodes))
+  (def paths (get layout :edges))
+
+  (var min-x 1e10)
+  (var max-x 0.0)
+  (var min-y 1e10)
+  (var max-y 0.0)
+
+  (loop [i :range [0 (length nodes)]]
+    (do
+      (def box (get boxes i))
+      (def x (get box :x))
+      (def y (get box :y))
+      (def w (get box :w))
+      (def h (get box :h))
+      (set min-x (min min-x x))
+      (set max-x (max max-x (+ x w)))
+      (set min-y (min min-y y))
+      (set max-y (max max-y (+ y h)))))
+
+  (loop [i :range [0 (length nodes)]]
+    (do
+      (def text (string/trim (get (get (get nodes i) :attrs) "label") "\\l"))
+      (def lines (string/split "\\l" text))
+      (pp lines)
+
+      (def box (get boxes i))
+      (def x (convert-coord (get box :x) min-x max-x 0 num-cols))
+      (def y (convert-coord (get box :y) min-y max-y 0 num-rows))
+      (def w (max (map length lines)))
+      (def h (length lines))
+      (pp x)
+      (pp y)
+      (pp w)
+      (pp h)
+      (pp "")))
+
+  # (def row-strs (map (fn [row] (string/join row "")) grid))
+  # (def result (string/join row-strs "\n"))
+  # (print result)
+)
 
 (defn main [& args]
   (def src (slurp (get args 1)))
@@ -98,4 +179,5 @@
 
   (def layout (graphviz/layout (get g :nodes) (get g :edges)))
   (pp layout)
+  (display g layout)
 )
