@@ -99,6 +99,27 @@
   (def new-size (- new-max new-min))
   (math/floor (+ (* (/ (- p orig-min) orig-size) new-size) new-min)))
 
+(defn render-box [grid H W x y w h]
+  (def min-r (max 0 y))
+  (def max-r (min H (+ y h)))
+  (def min-c (max 0 x))
+  (def max-c (min W (+ x w)))
+
+  (loop [r :range [min-r max-r]]
+    (loop [c :range [min-c max-c]]
+      (do
+        (cond
+          (and (= r min-r) (= c min-c))             (put (get grid r) c "╭")
+          (and (= r min-r) (= c (- max-c 1)))       (put (get grid r) c "╮")
+          (and (= r (- max-r 1)) (= c min-c))       (put (get grid r) c "╰")
+          (and (= r (- max-r 1)) (= c (- max-c 1))) (put (get grid r) c "╯")
+          (or (= r min-r) (= r (- max-r 1)))        (put (get grid r) c "─")
+          (or (= c min-c) (= c (- max-c 1)))        (put (get grid r) c "│"))
+        )
+      )
+    )
+  )
+
 (defn display [g layout]
   (def [stdout-r stdout-w] (os/pipe))
 
@@ -114,7 +135,7 @@
     (do
       (def row (array))
       (loop [x :range [0 num-cols]]
-        (array/push row ""))
+        (array/push row " "))
       (array/push grid row)))
 
   (def nodes (get g :nodes))
@@ -122,6 +143,10 @@
 
   (def boxes (get layout :nodes))
   (def paths (get layout :edges))
+
+  (pp num-rows)
+  (pp num-cols)
+  (pp "")
 
   (var min-x 1e10)
   (var max-x 0.0)
@@ -144,22 +169,17 @@
     (do
       (def text (string/trim (get (get (get nodes i) :attrs) "label") "\\l"))
       (def lines (string/split "\\l" text))
-      (pp lines)
 
       (def box (get boxes i))
       (def x (convert-coord (get box :x) min-x max-x 0 num-cols))
       (def y (convert-coord (get box :y) min-y max-y 0 num-rows))
-      (def w (max (map length lines)))
-      (def h (length lines))
-      (pp x)
-      (pp y)
-      (pp w)
-      (pp h)
-      (pp "")))
+      (def w (+ (reduce max 0 (map length lines)) 2))
+      (def h (+ (length lines) 2))
+      (render-box grid num-rows num-cols x y w h)))
 
-  # (def row-strs (map (fn [row] (string/join row "")) grid))
-  # (def result (string/join row-strs "\n"))
-  # (print result)
+  (def row-strs (map (fn [row] (string/join row "")) grid))
+  (def result (string/join row-strs "\n"))
+  (print result)
 )
 
 (defn main [& args]
