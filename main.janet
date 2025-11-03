@@ -134,7 +134,7 @@
           (if (and (>= c 0) (< c W))
             (put (get grid r) c ch)))))))
 
-(defn display [g layout]
+(defn display [g layout x-off y-off]
   (def [stdout-r stdout-w] (os/pipe))
 
   (os/execute ["tput" "lines"] :p {:out stdout-w})
@@ -157,10 +157,6 @@
 
   (def boxes (get layout :nodes))
   (def paths (get layout :edges))
-
-  (pp num-rows)
-  (pp num-cols)
-  (pp "")
 
   (var min-x 1e10)
   (var max-x 0.0)
@@ -185,18 +181,19 @@
       (def lines (string/split "\\l" (string/slice text 0 (- (length text) 2))))
 
       (def box (get boxes i))
-      (def x (convert-coord (get box :x) min-x max-x 0 num-cols))
-      (def y (- num-rows (convert-coord (get box :y) min-y max-y 0 num-rows)))
-      (def w (+ (reduce max 0 (map length lines)) 2))
+      (def x (convert-coord (+ (get box :x) x-off) min-x max-x 0 num-cols))
+      (def y (- num-rows (convert-coord (- (get box :y) y-off) min-y max-y 0 num-rows)))
+      (def w (+ (reduce max 0 (map length lines)) 4))
       (def h (+ (length lines) 2))
-      (render-text grid num-rows num-cols (+ x 1) (+ y 1) lines)
+      (render-text grid num-rows num-cols (+ x 2) (+ y 1) lines)
       (render-box grid num-rows num-cols x y w h)
     )
   )
 
   (def row-strs (map (fn [row] (string/join row "")) grid))
-  (def result (string/join row-strs "\n"))
+  (def result (string/join row-strs ""))
   (print result)
+  (flush)
 )
 
 (defn main [& args]
@@ -205,16 +202,47 @@
   # (pp dot)
   (def g (make-graph dot))
 
-  # (loop [i :range [0 (length (get g :nodes))]]
-  #   (do
-  #     (print i)
-  #     (pp (get (get g :nodes) i))))
-
-  # (loop [i :range [0 (length (get g :edges))]]
-  #   (do
-  #     (pp (get (get g :edges) i))))
-
   (def layout (graphviz/layout (get g :nodes) (get g :edges)))
   # (pp layout)
-  (display g layout)
+
+  (def [stdout-r stdout-w] (os/pipe))
+
+  (os/execute ["tput" "lines"] :p {:out stdout-w})
+  (def num-rows (scan-number (string/trim (:read stdout-r 5) "\n")))
+
+  (os/execute ["tput" "cols"] :p {:out stdout-w})
+  (def num-cols (scan-number (string/trim (:read stdout-r 5) "\n")))
+
+  (defn restore-term []
+    (os/execute ["stty" "-raw" "echo"] :p))
+
+  (try
+    (do
+      (os/execute ["stty" "raw" "-echo"] :p)
+      (var c "")
+      (var x-off 0)
+      (var y-off 0)
+      (display g layout x-off y-off)
+
+      (while (not= c "q")
+        (set c (string (:read stdin 1)))
+
+        (case c
+          "j" (set y-off (+ y-off 1))
+          "k" (set y-off (- y-off 1))
+          "l" (set x-off (+ x-off 1))
+          "h" (set x-off (- x-off 1)))
+
+        (print "\x1b[2J")
+        (print "\x1b[" num-rows "A")
+        (print "\r")
+        (flush)
+
+        (display g layout x-off y-off))
+      )
+
+    ([err _]
+     (restore-term)))
+
+  (restore-term)
 )
