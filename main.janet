@@ -120,6 +120,20 @@
     )
   )
 
+(defn render-text [grid H W x y lines]
+  (loop [i :range [0 (length lines)]]
+    (do
+      (def r (+ y i))
+      (def line (get lines i))
+
+      (if (and (>= r 0) (< r H))
+        (loop [j :range [0 (length line)]]
+          (def c (+ x j))
+          (def ch (string/slice line j (+ j 1)))
+
+          (if (and (>= c 0) (< c W))
+            (put (get grid r) c ch)))))))
+
 (defn display [g layout]
   (def [stdout-r stdout-w] (os/pipe))
 
@@ -167,15 +181,18 @@
 
   (loop [i :range [0 (length nodes)]]
     (do
-      (def text (string/trim (get (get (get nodes i) :attrs) "label") "\\l"))
-      (def lines (string/split "\\l" text))
+      (def text (get (get (get nodes i) :attrs) "label"))
+      (def lines (string/split "\\l" (string/slice text 0 (- (length text) 2))))
 
       (def box (get boxes i))
       (def x (convert-coord (get box :x) min-x max-x 0 num-cols))
       (def y (convert-coord (get box :y) min-y max-y 0 num-rows))
       (def w (+ (reduce max 0 (map length lines)) 2))
       (def h (+ (length lines) 2))
-      (render-box grid num-rows num-cols x y w h)))
+      (render-box grid num-rows num-cols x y w h)
+      (render-text grid num-rows num-cols (+ x 1) (+ y 1) lines)
+    )
+  )
 
   (def row-strs (map (fn [row] (string/join row "")) grid))
   (def result (string/join row-strs "\n"))
@@ -198,6 +215,6 @@
   #     (pp (get (get g :edges) i))))
 
   (def layout (graphviz/layout (get g :nodes) (get g :edges)))
-  (pp layout)
+  # (pp layout)
   (display g layout)
 )
